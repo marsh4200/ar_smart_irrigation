@@ -1,0 +1,13 @@
+{
+  "domain": "ar_smart_irrigation",
+  "name": "AR Smart Irrigation",
+  "codeowners": ["@marsh4200"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/marsh4200/ar_smart_irrigation",
+  "integration_type": "hub",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/marsh4200/ar_smart_irrigation/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}
