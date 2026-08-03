@@ -1,79 +1,24 @@
-start_zone:
-  name: Start zone
-  description: Manually run a single zone, interrupting any active run.
+run_now:
+  name: Run now
+  description: Start watering immediately.
   fields:
-    zone_id:
-      name: Zone ID
-      description: The slug of the zone to run (see the zone valve attributes).
-      required: true
-      example: front_lawn
-      selector:
-        text:
-    duration:
-      name: Duration
-      description: Minutes to run. Defaults to the zone's configured duration.
+    zone:
+      name: Zone
+      description: Zone number to run. Leave empty to run all configured zones in sequence.
       required: false
-      example: 15
       selector:
         number:
           min: 1
-          max: 600
-          unit_of_measurement: min
-
-stop_zone:
-  name: Stop zone
-  description: Stop a specific zone.
-  fields:
-    zone_id:
-      name: Zone ID
-      required: true
-      example: front_lawn
+          max: 4
+          mode: box
+    check_weather:
+      name: Check weather first
+      description: Skip the run if it is wet, freezing, or rain is forecast.
+      required: false
+      default: false
       selector:
-        text:
+        boolean:
 
-stop_all:
-  name: Stop all
-  description: Immediately stop all watering and clear the queue.
-
-run_program:
-  name: Run program
-  description: Manually queue a program to run now (weather adjustment still applies).
-  fields:
-    program_id:
-      name: Program ID
-      required: true
-      example: morning
-      selector:
-        text:
-
-skip_next:
-  name: Skip current or next
-  description: Skip the active run, or the next queued run if idle.
-
-rain_delay:
-  name: Rain delay
-  description: Suspend all automatic watering for a number of days. 0 clears it.
-  fields:
-    days:
-      name: Days
-      required: true
-      example: 2
-      selector:
-        number:
-          min: 0
-          max: 30
-          unit_of_measurement: d
-
-set_seasonal_adjust:
-  name: Set seasonal adjustment
-  description: Scale all watering durations by a percentage (100 = normal).
-  fields:
-    percent:
-      name: Percent
-      required: true
-      example: 120
-      selector:
-        number:
-          min: 0
-          max: 200
-          unit_of_measurement: "%"
+stop:
+  name: Stop
+  description: Cancel any run in progress and switch all zone relays off.

@@ -1,92 +1,79 @@
-"""Switch entities — system master and per-program enable switches."""
+"""Switches: the program master, plus one run switch per configured zone."""
 
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import DOMAIN
-from .coordinator import ARSmartIrrigationCoordinator
-from .entity import ARIrrigationEntity
+from .controller import IrrigationController
+from .entity import IrrigationEntity
 
 
 async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    coordinator: ARSmartIrrigationCoordinator = hass.data[DOMAIN][entry.entry_id]
-    entities: list[SwitchEntity] = [SystemEnableSwitch(coordinator)]
-    entities.extend(
-        ProgramSwitch(coordinator, p.program_id, p.name) for p in coordinator.programs
-    )
+    controller: IrrigationController = hass.data[DOMAIN][entry.entry_id]
+    entities: list[SwitchEntity] = [ProgramSwitch(controller)]
+    for zone, _entity_id, _minutes in controller.zones():
+        entities.append(ZoneSwitch(controller, zone))
     async_add_entities(entities)
 
 
-class SystemEnableSwitch(ARIrrigationEntity, SwitchEntity):
-    """Global kill-switch. When off, no automatic programs run."""
+class ProgramSwitch(IrrigationEntity, SwitchEntity, RestoreEntity):
+    """Turn the whole schedule on or off."""
 
-    _attr_name = "System enabled"
+    _attr_name = "Program"
+    _attr_icon = "mdi:calendar-clock"
+
+    def __init__(self, controller: IrrigationController) -> None:
+        super().__init__(controller, "program")
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last is not None:
+            self.controller.set_enabled(last.state == "on")
+
+    @property
+    def is_on(self) -> bool:
+        return self.controller.enabled
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        self.controller.set_enabled(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        self.controller.set_enabled(False)
+
+
+class ZoneSwitch(IrrigationEntity, SwitchEntity):
+    """Turn a single zone on for its configured runtime."""
+
     _attr_icon = "mdi:sprinkler-variant"
 
-    def __init__(self, coordinator: ARSmartIrrigationCoordinator) -> None:
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.entry.entry_id}_system_enabled"
+    def __init__(self, controller: IrrigationController, zone: int) -> None:
+        super().__init__(controller, f"zone_{zone}")
+        self._zone = zone
+        self._attr_name = f"Zone {zone}"
 
     @property
     def is_on(self) -> bool:
-        return self.coordinator.system_enabled
-
-    async def async_turn_on(self, **kwargs) -> None:
-        await self.coordinator.async_set_system_enabled(True)
-
-    async def async_turn_off(self, **kwargs) -> None:
-        await self.coordinator.async_set_system_enabled(False)
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        self.async_write_ha_state()
-
-
-class ProgramSwitch(ARIrrigationEntity, SwitchEntity):
-    """Enables or disables an individual watering program."""
-
-    _attr_icon = "mdi:calendar-clock"
-    _attr_entity_category = EntityCategory.CONFIG
-
-    def __init__(
-        self, coordinator: ARSmartIrrigationCoordinator, program_id: str, name: str
-    ) -> None:
-        super().__init__(coordinator)
-        self._program_id = program_id
-        self._attr_name = f"Program {name}"
-        self._attr_unique_id = f"{coordinator.entry.entry_id}_program_{program_id}"
+        return self.controller.current_zone == self._zone
 
     @property
-    def is_on(self) -> bool:
-        return self.coordinator.is_program_enabled(self._program_id)
-
-    @property
-    def extra_state_attributes(self) -> dict:
-        program = self.coordinator.get_program(self._program_id)
-        if not program:
-            return {}
+    def extra_state_attributes(self) -> dict[str, Any]:
         return {
-            "start_times": program.start_times,
-            "frequency": program.frequency,
-            "zone_count": len(program.zone_ids),
-            "weather_adjust": program.weather_adjust,
+            "relay": self.controller.zone_entity(self._zone),
+            "runtime_minutes": self.controller.zone_minutes(self._zone),
         }
 
-    async def async_turn_on(self, **kwargs) -> None:
-        await self.coordinator.async_set_program_enabled(self._program_id, True)
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self.controller.async_run([self._zone])
 
-    async def async_turn_off(self, **kwargs) -> None:
-        await self.coordinator.async_set_program_enabled(self._program_id, False)
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        self.async_write_ha_state()
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self.controller.async_stop()

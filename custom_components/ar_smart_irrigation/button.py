@@ -1,4 +1,4 @@
-"""Button entities for one-shot actions."""
+"""Buttons: run the whole program now, or stop everything."""
 
 from __future__ import annotations
 
@@ -8,42 +8,38 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-from .coordinator import ARSmartIrrigationCoordinator
-from .entity import ARIrrigationEntity
+from .controller import IrrigationController
+from .entity import IrrigationEntity
 
 
 async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    coordinator: ARSmartIrrigationCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([StopAllButton(coordinator), SkipNextButton(coordinator)])
+    controller: IrrigationController = hass.data[DOMAIN][entry.entry_id]
+    async_add_entities([RunNowButton(controller), StopButton(controller)])
 
 
-class StopAllButton(ARIrrigationEntity, ButtonEntity):
-    """Immediately stop watering and clear the queue."""
+class RunNowButton(IrrigationEntity, ButtonEntity):
+    """Run every configured zone in sequence, ignoring the weather check."""
 
-    _attr_name = "Stop all"
-    _attr_icon = "mdi:stop-circle"
+    _attr_name = "Run now"
+    _attr_icon = "mdi:play"
 
-    def __init__(self, coordinator: ARSmartIrrigationCoordinator) -> None:
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.entry.entry_id}_stop_all"
-
-    async def async_press(self) -> None:
-        await self.coordinator.async_stop_all()
-
-
-class SkipNextButton(ARIrrigationEntity, ButtonEntity):
-    """Skip the currently active or next queued run."""
-
-    _attr_name = "Skip current/next"
-    _attr_icon = "mdi:skip-next-circle"
-
-    def __init__(self, coordinator: ARSmartIrrigationCoordinator) -> None:
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.entry.entry_id}_skip_next"
+    def __init__(self, controller: IrrigationController) -> None:
+        super().__init__(controller, "run_now")
 
     async def async_press(self) -> None:
-        await self.coordinator.async_skip_next()
+        await self.controller.async_run()
+
+
+class StopButton(IrrigationEntity, ButtonEntity):
+    """Cancel the run and close everything."""
+
+    _attr_name = "Stop"
+    _attr_icon = "mdi:stop"
+
+    def __init__(self, controller: IrrigationController) -> None:
+        super().__init__(controller, "stop")
+
+    async def async_press(self) -> None:
+        await self.controller.async_stop()

@@ -1,127 +1,75 @@
-"""Sensor entities exposing irrigation status and telemetry."""
+"""Sensors: what it's doing now, and when it runs next."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
-from homeassistant.components.sensor import (
-    SensorDeviceClass,
-    SensorEntity,
-    SensorEntityDescription,
-    SensorStateClass,
-)
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTime, UnitOfVolume
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
-from .coordinator import ARSmartIrrigationCoordinator
-from .entity import ARIrrigationEntity
-
-
-@dataclass(frozen=True, kw_only=True)
-class IrrigationSensor(SensorEntityDescription):
-    """Sensor description with a value extractor over coordinator.data."""
-
-    value_fn: Callable[[dict[str, Any]], Any] = lambda d: None
-
-
-SENSORS: tuple[IrrigationSensor, ...] = (
-    IrrigationSensor(
-        key="next_run",
-        name="Next scheduled run",
-        icon="mdi:calendar-arrow-right",
-        device_class=SensorDeviceClass.TIMESTAMP,
-        value_fn=lambda d: d.get("next_run"),
-    ),
-    IrrigationSensor(
-        key="active_program",
-        name="Active program",
-        icon="mdi:play-circle",
-        value_fn=lambda d: d.get("active_program") or "Idle",
-    ),
-    IrrigationSensor(
-        key="active_zone",
-        name="Active zone",
-        icon="mdi:sprinkler",
-        value_fn=lambda d: d.get("active_zone") or "None",
-    ),
-    IrrigationSensor(
-        key="remaining_seconds",
-        name="Zone time remaining",
-        icon="mdi:timer-sand",
-        native_unit_of_measurement=UnitOfTime.SECONDS,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda d: d.get("remaining_seconds", 0),
-    ),
-    IrrigationSensor(
-        key="water_used_today",
-        name="Water used today",
-        icon="mdi:water",
-        native_unit_of_measurement=UnitOfVolume.LITERS,
-        device_class=SensorDeviceClass.WATER,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda d: d.get("water_used_today", 0.0),
-    ),
-    IrrigationSensor(
-        key="run_litres",
-        name="Water this run",
-        icon="mdi:water-pump",
-        native_unit_of_measurement=UnitOfVolume.LITERS,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda d: d.get("run_litres", 0.0),
-    ),
-    IrrigationSensor(
-        key="seasonal_adjust",
-        name="Seasonal adjustment",
-        icon="mdi:percent",
-        native_unit_of_measurement="%",
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda d: d.get("seasonal_adjust", 100),
-    ),
-    IrrigationSensor(
-        key="queue_depth",
-        name="Queued runs",
-        icon="mdi:tray-full",
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda d: d.get("queue_depth", 0),
-    ),
+from .const import (
+    DOMAIN,
+    STATUS_DISABLED,
+    STATUS_IDLE,
+    STATUS_SKIPPED,
+    STATUS_WATERING,
 )
+from .controller import IrrigationController
+from .entity import IrrigationEntity
 
 
 async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    coordinator: ARSmartIrrigationCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities(
-        IrrigationStatusSensor(coordinator, desc) for desc in SENSORS
-    )
+    controller: IrrigationController = hass.data[DOMAIN][entry.entry_id]
+    async_add_entities([StatusSensor(controller), NextRunSensor(controller)])
 
 
-class IrrigationStatusSensor(ARIrrigationEntity, SensorEntity):
-    """Generic sensor rendered from a coordinator.data extractor."""
+class StatusSensor(IrrigationEntity, SensorEntity):
+    """Idle / watering / skipped / disabled."""
 
-    entity_description: IrrigationSensor
+    _attr_name = "Status"
+    _attr_icon = "mdi:water-pump"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = [STATUS_IDLE, STATUS_WATERING, STATUS_SKIPPED, STATUS_DISABLED]
+    _attr_translation_key = "status"
 
-    def __init__(
-        self,
-        coordinator: ARSmartIrrigationCoordinator,
-        description: IrrigationSensor,
-    ) -> None:
-        super().__init__(coordinator)
-        self.entity_description = description
-        self._attr_unique_id = f"{coordinator.entry.entry_id}_{description.key}"
+    def __init__(self, controller: IrrigationController) -> None:
+        super().__init__(controller, "status")
 
     @property
-    def native_value(self) -> Any:
-        data = self.coordinator.data or {}
-        return self.entity_description.value_fn(data)
+    def native_value(self) -> str:
+        return self.controller.status
 
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        self.async_write_ha_state()
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        remaining = None
+        if self.controller.zone_ends_at:
+            secs = (self.controller.zone_ends_at - dt_util.utcnow()).total_seconds()
+            remaining = max(0, round(secs / 60, 1))
+        return {
+            "current_zone": self.controller.current_zone,
+            "minutes_remaining": remaining,
+            "last_run": self.controller.last_run,
+            "last_skip_reason": self.controller.last_skip_reason,
+            "zones_configured": len(self.controller.zones()),
+        }
+
+
+class NextRunSensor(IrrigationEntity, SensorEntity):
+    """Next scheduled start time."""
+
+    _attr_name = "Next run"
+    _attr_icon = "mdi:clock-outline"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, controller: IrrigationController) -> None:
+        super().__init__(controller, "next_run")
+
+    @property
+    def native_value(self) -> datetime | None:
+        return self.controller.next_run

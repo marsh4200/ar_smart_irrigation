@@ -3,7 +3,33 @@
     "step": {
       "user": {
         "title": "AR Smart Irrigation",
-        "description": "Set up the smart sprinkler controller. After creating it, open the integration's Configure menu to add zones and watering programs."
+        "description": "Set when the program runs and when it should skip because of weather.",
+        "data": {
+          "weather_entity": "Weather entity",
+          "start_time": "Start time",
+          "days": "Days",
+          "rain_threshold": "Skip if rain forecast above",
+          "freeze_temp": "Skip if colder than"
+        },
+        "data_description": {
+          "weather_entity": "Leave empty to water regardless of weather.",
+          "rain_threshold": "Today's forecast rainfall. Set to 0 to disable this check.",
+          "freeze_temp": "Current outdoor temperature below this cancels the run."
+        }
+      },
+      "zones": {
+        "title": "Zones",
+        "description": "Pick the relay channel for each zone you use and how long it should run. Leave a zone empty if you don't have it.",
+        "data": {
+          "zone_1_switch": "Zone 1 relay",
+          "zone_1_minutes": "Zone 1 runtime",
+          "zone_2_switch": "Zone 2 relay",
+          "zone_2_minutes": "Zone 2 runtime",
+          "zone_3_switch": "Zone 3 relay",
+          "zone_3_minutes": "Zone 3 runtime",
+          "zone_4_switch": "Zone 4 relay",
+          "zone_4_minutes": "Zone 4 runtime"
+        }
       }
     },
     "abort": {
@@ -13,129 +39,67 @@
   "options": {
     "step": {
       "init": {
-        "title": "AR Smart Irrigation",
-        "menu_options": {
-          "settings": "Global settings (weather, master valve, flow)",
-          "add_zone": "Add a zone",
-          "manage_zones": "Edit or remove a zone",
-          "add_program": "Add a program",
-          "manage_programs": "Edit or remove a program"
-        }
-      },
-      "settings": {
-        "title": "Global settings",
-        "data": {
-          "weather_entity": "Weather entity (for rain/freeze/ET)",
-          "master_valve_entity": "Master valve",
-          "pump_entity": "Pump / booster",
-          "flow_sensor_entity": "Flow sensor (L/min)",
-          "master_lead_seconds": "Master valve lead time",
-          "rain_skip_enabled": "Skip watering when rain is forecast",
-          "rain_threshold_mm": "Rain skip threshold",
-          "freeze_skip_enabled": "Skip watering when freezing",
-          "freeze_threshold_c": "Freeze threshold",
-          "wind_skip_enabled": "Skip watering when windy",
-          "wind_threshold_kmh": "Wind skip threshold",
-          "et_adjust_enabled": "Adjust runtime by temperature (ET)",
-          "et_base_temp_c": "ET base temperature",
-          "flow_leak_detection": "Enable flow anomaly / leak detection",
-          "flow_high_factor": "High-flow trigger (× expected)",
-          "flow_low_factor": "Low-flow trigger (× expected)"
-        }
-      },
-      "add_zone": {
-        "title": "Add zone",
-        "data": {
-          "name": "Zone name",
-          "switch_entity": "Valve / switch entity",
-          "default_duration": "Default duration",
-          "flow_rate": "Nominal flow rate",
-          "cycles": "Cycles (cycle & soak)",
-          "soak_minutes": "Soak time between cycles",
-          "soil_moisture_entity": "Soil moisture sensor",
-          "soil_moisture_threshold": "Skip above soil moisture",
-          "enabled": "Zone enabled"
-        }
-      },
-      "edit_zone": {
-        "title": "Edit zone",
-        "data": {
-          "name": "Zone name",
-          "switch_entity": "Valve / switch entity",
-          "default_duration": "Default duration",
-          "flow_rate": "Nominal flow rate",
-          "cycles": "Cycles (cycle & soak)",
-          "soak_minutes": "Soak time between cycles",
-          "soil_moisture_entity": "Soil moisture sensor",
-          "soil_moisture_threshold": "Skip above soil moisture",
-          "enabled": "Zone enabled"
-        }
-      },
-      "manage_zones": {
-        "title": "Manage zones",
-        "data": { "zone": "Zone" }
-      },
-      "zone_menu": {
-        "title": "Zone",
-        "menu_options": {
-          "edit_zone": "Edit this zone",
-          "delete_zone": "Delete this zone"
-        }
-      },
-      "add_program": {
-        "title": "Add program",
-        "data": {
-          "name": "Program name",
-          "zone_ids": "Zones (run in listed order)",
-          "start_times": "Start times (comma separated, HH:MM)",
-          "frequency": "Frequency",
-          "weekdays": "Weekdays (for 'Selected weekdays')",
-          "interval_days": "Interval (for 'Every N days')",
-          "duration_override": "Override every zone's duration",
-          "weather_adjust": "Apply weather adjustment",
-          "enabled": "Program enabled"
-        }
-      },
-      "edit_program": {
-        "title": "Edit program",
-        "data": {
-          "name": "Program name",
-          "zone_ids": "Zones (run in listed order)",
-          "start_times": "Start times (comma separated, HH:MM)",
-          "frequency": "Frequency",
-          "weekdays": "Weekdays (for 'Selected weekdays')",
-          "interval_days": "Interval (for 'Every N days')",
-          "duration_override": "Override every zone's duration",
-          "weather_adjust": "Apply weather adjustment",
-          "enabled": "Program enabled"
-        }
-      },
-      "manage_programs": {
-        "title": "Manage programs",
-        "data": { "program": "Program" }
-      },
-      "program_menu": {
         "title": "Program",
-        "menu_options": {
-          "edit_program": "Edit this program",
-          "delete_program": "Delete this program"
+        "data": {
+          "weather_entity": "Weather entity",
+          "start_time": "Start time",
+          "days": "Days",
+          "rain_threshold": "Skip if rain forecast above",
+          "freeze_temp": "Skip if colder than"
+        }
+      },
+      "zones": {
+        "title": "Zones",
+        "data": {
+          "zone_1_switch": "Zone 1 relay",
+          "zone_1_minutes": "Zone 1 runtime",
+          "zone_2_switch": "Zone 2 relay",
+          "zone_2_minutes": "Zone 2 runtime",
+          "zone_3_switch": "Zone 3 relay",
+          "zone_3_minutes": "Zone 3 runtime",
+          "zone_4_switch": "Zone 4 relay",
+          "zone_4_minutes": "Zone 4 runtime"
         }
       }
-    },
-    "abort": {
-      "no_zones": "No zones configured yet. Add a zone first.",
-      "no_programs": "No programs configured yet."
     }
   },
   "selector": {
-    "frequency": {
+    "days": {
       "options": {
-        "daily": "Every day",
-        "weekdays": "Selected weekdays",
-        "even": "Even calendar days",
-        "odd": "Odd calendar days",
-        "interval": "Every N days"
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday",
+        "sun": "Sunday"
       }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "status": {
+        "state": {
+          "idle": "Idle",
+          "watering": "Watering",
+          "skipped": "Skipped (weather)",
+          "disabled": "Disabled"
+        }
+      }
+    }
+  },
+  "services": {
+    "run_now": {
+      "name": "Run now",
+      "description": "Start watering immediately.",
+      "fields": {
+        "zone": { "name": "Zone", "description": "Zone number, or empty for all zones." },
+        "check_weather": { "name": "Check weather first", "description": "Skip the run if the weather says so." }
+      }
+    },
+    "stop": {
+      "name": "Stop",
+      "description": "Cancel any run and switch all relays off."
     }
   }
 }
