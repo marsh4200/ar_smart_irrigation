@@ -80,9 +80,9 @@ service: ar_smart_irrigation.stop
 3. **Settings → Devices & Services → Add Integration → AR Smart Irrigation**.
 4. Step 1: weather entity, rain and freeze limits (these protect every
    program you configure next).
-5. Steps 2 & 3: name each zone and pick its switch entity and runtime, for
-   zones 1-8 then 9-16. Leave a zone empty if you don't use that channel.
-6. Step 4: build your programs — name, start time, days, and which zones each
+5. Step 2: name each of your zones (up to 16) and pick its switch entity and
+   runtime. Leave a zone empty if you don't use that channel.
+6. Step 3: build your programs — name, start time, days, and which zones each
    one triggers. Leave a program's zones empty to leave it unused.
 
 Everything can be changed later under **Configure**.

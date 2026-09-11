@@ -16,8 +16,8 @@
         }
       },
       "zones": {
-        "title": "Zones (1-8)",
-        "description": "Each zone is one physical switch entity (a relay channel, valve, or smart plug) and how long it runs for. Leave a zone empty if you don't have it. Name your zones so programs are easy to read later. Up to 16 zones are supported, split across two pages.",
+        "title": "Zones",
+        "description": "Each zone is one physical switch entity (a relay channel, valve, or smart plug) and how long it runs for. Leave a zone empty if you don't have it. Name your zones so programs are easy to read later. Supports up to 16 zones.",
         "data": {
           "zone_1_name": "Zone 1 name",
           "zone_1_switch": "Zone 1 switch entity",
@@ -42,23 +42,7 @@
           "zone_7_minutes": "Zone 7 runtime",
           "zone_8_name": "Zone 8 name",
           "zone_8_switch": "Zone 8 switch entity",
-          "zone_8_minutes": "Zone 8 runtime"
-        },
-        "data_description": {
-          "zone_1_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
-          "zone_2_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
-          "zone_3_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
-          "zone_4_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
-          "zone_5_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
-          "zone_6_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
-          "zone_7_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
-          "zone_8_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\"."
-        }
-      },
-      "zones2": {
-        "title": "Zones (9-16)",
-        "description": "The rest of your zones, if you have more than 8. Leave any unused zone empty.",
-        "data": {
+          "zone_8_minutes": "Zone 8 runtime",
           "zone_9_name": "Zone 9 name",
           "zone_9_switch": "Zone 9 switch entity",
           "zone_9_minutes": "Zone 9 runtime",
@@ -85,6 +69,14 @@
           "zone_16_minutes": "Zone 16 runtime"
         },
         "data_description": {
+          "zone_1_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_2_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_3_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_4_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_5_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_6_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_7_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_8_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
           "zone_9_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
           "zone_10_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
           "zone_11_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
@@ -138,7 +130,7 @@
         }
       },
       "zones": {
-        "title": "Zones (1-8)",
+        "title": "Zones",
         "data": {
           "zone_1_name": "Zone 1 name",
           "zone_1_switch": "Zone 1 switch entity",
@@ -163,22 +155,7 @@
           "zone_7_minutes": "Zone 7 runtime",
           "zone_8_name": "Zone 8 name",
           "zone_8_switch": "Zone 8 switch entity",
-          "zone_8_minutes": "Zone 8 runtime"
-        },
-        "data_description": {
-          "zone_1_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
-          "zone_2_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
-          "zone_3_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
-          "zone_4_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
-          "zone_5_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
-          "zone_6_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
-          "zone_7_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
-          "zone_8_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\"."
-        }
-      },
-      "zones2": {
-        "title": "Zones (9-16)",
-        "data": {
+          "zone_8_minutes": "Zone 8 runtime",
           "zone_9_name": "Zone 9 name",
           "zone_9_switch": "Zone 9 switch entity",
           "zone_9_minutes": "Zone 9 runtime",
@@ -205,6 +182,14 @@
           "zone_16_minutes": "Zone 16 runtime"
         },
         "data_description": {
+          "zone_1_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_2_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_3_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_4_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_5_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_6_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_7_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_8_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
           "zone_9_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
           "zone_10_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
           "zone_11_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
