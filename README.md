@@ -1,8 +1,9 @@
 # AR Smart Irrigation
 
 A small, weather-aware irrigation controller for Home Assistant. It drives up to
-four relay channels (built for a Sonoff 4CH Pro R3, but any `switch`, `valve`,
-`input_boolean`, or `light` entity works) and runs them one at a time.
+sixteen relay channels (any `switch`, `valve`, `input_boolean`, or `light`
+entity works — built with a Sonoff 4CH Pro R3 in mind, but scales to a large
+multi-zone property) and runs them one at a time.
 
 No flow meters, no ET maths, no soil probes. It checks the weather, then waters —
 on as many independent timers as you need.
@@ -16,8 +17,10 @@ on as many independent timers as you need.
 - **Weather check before every scheduled run.** Skips if it is currently wet,
   if the outdoor temperature is below your freeze limit, or if today's forecast
   rainfall is above your threshold. Applies to every program.
-- **Up to 4 zones**, each mapped to a switch entity, with its own name and
-  runtime in minutes.
+- **Up to 16 zones**, each mapped to a switch entity, with its own name and
+  runtime in minutes. Leave a zone's switch entity empty and it's simply not
+  created — nothing to disable, it just doesn't exist until you pick an
+  entity for it (in **Configure**, at any time).
 - **Sequential** — only one zone ever runs at a time, even across programs.
 - **Skip today** — a one-tap switch that cancels only today's scheduled
   run(s), without touching your program or day-of-week setup. Clears itself
@@ -77,9 +80,9 @@ service: ar_smart_irrigation.stop
 3. **Settings → Devices & Services → Add Integration → AR Smart Irrigation**.
 4. Step 1: weather entity, rain and freeze limits (these protect every
    program you configure next).
-5. Step 2: name each zone and pick its switch entity and runtime. Leave a
-   zone empty if you don't use that channel.
-6. Step 3: build your programs — name, start time, days, and which zones each
+5. Steps 2 & 3: name each zone and pick its switch entity and runtime, for
+   zones 1-8 then 9-16. Leave a zone empty if you don't use that channel.
+6. Step 4: build your programs — name, start time, days, and which zones each
    one triggers. Leave a program's zones empty to leave it unused.
 
 Everything can be changed later under **Configure**.

@@ -42,6 +42,7 @@ from .const import (
     NAME,
     PROGRAM_COUNT,
     ZONE_COUNT,
+    ZONES_PER_PAGE,
 )
 
 ZONE_DOMAINS = ["switch", "valve", "input_boolean", "light"]
@@ -78,9 +79,9 @@ def _weather_schema(defaults: dict[str, Any]) -> vol.Schema:
     )
 
 
-def _zones_schema(defaults: dict[str, Any]) -> vol.Schema:
+def _zones_schema(defaults: dict[str, Any], start: int, end: int) -> vol.Schema:
     fields: dict[Any, Any] = {}
-    for i in range(1, ZONE_COUNT + 1):
+    for i in range(start, end + 1):
         name_key = CONF_ZONE_NAME.format(i)
         switch_key = CONF_ZONE_SWITCH.format(i)
         minutes_key = CONF_ZONE_MINUTES.format(i)
@@ -159,9 +160,11 @@ def _programs_schema(defaults: dict[str, Any], zone_options: list[dict[str, str]
     return vol.Schema(fields)
 
 
-def _clear_missing_zone_keys(data: dict[str, Any], user_input: dict[str, Any]) -> None:
+def _clear_missing_zone_keys(
+    data: dict[str, Any], user_input: dict[str, Any], start: int, end: int
+) -> None:
     """Blank zone fields must actually clear rather than sticking around."""
-    for i in range(1, ZONE_COUNT + 1):
+    for i in range(start, end + 1):
         for key in (
             CONF_ZONE_NAME.format(i),
             CONF_ZONE_SWITCH.format(i),
@@ -178,7 +181,7 @@ def _clear_missing_program_keys(data: dict[str, Any], user_input: dict[str, Any]
 
 
 class ArSmartIrrigationConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle the initial setup: weather -> zones -> programs."""
+    """Handle the initial setup: weather -> zones (1-8) -> zones (9-16) -> programs."""
 
     VERSION = 2
 
@@ -197,9 +200,21 @@ class ArSmartIrrigationConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_zones(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         if user_input is not None:
             self._data.update(user_input)
+            return await self.async_step_zones2()
+
+        return self.async_show_form(
+            step_id="zones", data_schema=_zones_schema({}, 1, ZONES_PER_PAGE)
+        )
+
+    async def async_step_zones2(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        if user_input is not None:
+            self._data.update(user_input)
             return await self.async_step_programs()
 
-        return self.async_show_form(step_id="zones", data_schema=_zones_schema({}))
+        return self.async_show_form(
+            step_id="zones2",
+            data_schema=_zones_schema({}, ZONES_PER_PAGE + 1, ZONE_COUNT),
+        )
 
     async def async_step_programs(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         if user_input is not None:
@@ -218,7 +233,7 @@ class ArSmartIrrigationConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class ArSmartIrrigationOptionsFlow(OptionsFlow):
-    """Let everything be edited after setup: weather -> zones -> programs."""
+    """Let everything be edited after setup: weather -> zones (1-8) -> zones (9-16) -> programs."""
 
     def __init__(self) -> None:
         self._data: dict[str, Any] = {}
@@ -242,12 +257,23 @@ class ArSmartIrrigationOptionsFlow(OptionsFlow):
 
     async def async_step_zones(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         if user_input is not None:
-            _clear_missing_zone_keys(self._data, user_input)
+            _clear_missing_zone_keys(self._data, user_input, 1, ZONES_PER_PAGE)
+            self._data.update(user_input)
+            return await self.async_step_zones2()
+
+        return self.async_show_form(
+            step_id="zones", data_schema=_zones_schema(self._current, 1, ZONES_PER_PAGE)
+        )
+
+    async def async_step_zones2(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        if user_input is not None:
+            _clear_missing_zone_keys(self._data, user_input, ZONES_PER_PAGE + 1, ZONE_COUNT)
             self._data.update(user_input)
             return await self.async_step_programs()
 
         return self.async_show_form(
-            step_id="zones", data_schema=_zones_schema(self._current)
+            step_id="zones2",
+            data_schema=_zones_schema(self._current, ZONES_PER_PAGE + 1, ZONE_COUNT),
         )
 
     async def async_step_programs(self, user_input: dict[str, Any] | None = None) -> FlowResult:

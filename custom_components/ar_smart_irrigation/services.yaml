@@ -9,7 +9,7 @@ run_now:
       selector:
         number:
           min: 1
-          max: 4
+          max: 16
           mode: box
     check_weather:
       name: Check weather first

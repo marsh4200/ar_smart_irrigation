@@ -8,7 +8,8 @@ MANUFACTURER = "AR Smart Home"
 MODEL = "Smart Irrigation Controller"
 VERSION = "2.0.0"
 
-ZONE_COUNT = 4
+ZONE_COUNT = 16
+ZONES_PER_PAGE = 8  # the config flow splits zones across pages this wide
 PROGRAM_COUNT = 4
 
 # ---------------------------------------------------------------------------
