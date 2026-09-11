@@ -1,10 +1,18 @@
-"""The watering engine: weather check, then run zones one after another."""
+"""The watering engine: weather check, then run zones one after another.
+
+A "program" is a named timer — a start time, the days it fires on, and which
+zones it switches on when it fires. There can be several of them (e.g. a
+"Morning" and an "Evening" program), each independently enabled. Everything
+still funnels through the same sequential zone runner, and the same global
+weather check, so only one relay is ever on at a time and a single rain/freeze
+rule protects every program.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any, Callable
 
 from homeassistant.const import ATTR_ENTITY_ID, STATE_UNAVAILABLE, STATE_UNKNOWN
@@ -13,18 +21,22 @@ from homeassistant.helpers.event import async_track_time_change, async_track_tim
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    CONF_DAYS,
     CONF_FREEZE_TEMP,
+    CONF_PROGRAM_DAYS,
+    CONF_PROGRAM_NAME,
+    CONF_PROGRAM_START_TIME,
+    CONF_PROGRAM_ZONES,
     CONF_RAIN_THRESHOLD,
-    CONF_START_TIME,
     CONF_WEATHER_ENTITY,
     CONF_ZONE_MINUTES,
+    CONF_ZONE_NAME,
     CONF_ZONE_SWITCH,
     DAYS,
     DEFAULT_FREEZE_TEMP,
     DEFAULT_MINUTES,
     DEFAULT_RAIN_THRESHOLD,
     DEFAULT_START_TIME,
+    PROGRAM_COUNT,
     STATUS_DISABLED,
     STATUS_IDLE,
     STATUS_SKIPPED,
@@ -34,6 +46,23 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class Program:
+    """A single configured timer, resolved from the config entry."""
+
+    __slots__ = ("id", "name", "start_time", "days", "zones")
+
+    def __init__(self, program_id: int, name: str, start_time: time, days: list[str], zones: list[int]):
+        self.id = program_id
+        self.name = name
+        self.start_time = start_time
+        self.days = days
+        self.zones = zones
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.zones)
 
 
 class IrrigationController:
@@ -46,9 +75,17 @@ class IrrigationController:
         self.enabled: bool = True
         self.status: str = STATUS_IDLE
         self.current_zone: int | None = None
+        self.current_program_name: str | None = None
         self.zone_ends_at: datetime | None = None
         self.last_run: datetime | None = None
         self.last_skip_reason: str | None = None
+
+        # Per-program enable state, keyed by program id. Populated by each
+        # program's enable switch as it's restored/added to hass.
+        self.program_enabled: dict[int, bool] = {}
+        # Set to today's date while "Skip today" is armed; cleared automatically
+        # once the date rolls over.
+        self._skip_today_date: date | None = None
 
         self._task: asyncio.Task | None = None
         self._unsubs: list[Callable[[], None]] = []
@@ -62,15 +99,17 @@ class IrrigationController:
         """Options win over the original setup data."""
         return {**self.entry.data, **self.entry.options}
 
-    def zones(self) -> list[tuple[int, str, int]]:
-        """Return [(zone_number, switch_entity_id, minutes)] for configured zones."""
-        out: list[tuple[int, str, int]] = []
+    def zones(self) -> list[tuple[int, str, int, str]]:
+        """Return [(zone_number, switch_entity_id, minutes, name)] for configured zones."""
+        out: list[tuple[int, str, int, str]] = []
+        cfg = self.cfg
         for i in range(1, ZONE_COUNT + 1):
-            ent = self.cfg.get(CONF_ZONE_SWITCH.format(i))
+            ent = cfg.get(CONF_ZONE_SWITCH.format(i))
             if not ent:
                 continue
-            minutes = int(self.cfg.get(CONF_ZONE_MINUTES.format(i), DEFAULT_MINUTES))
-            out.append((i, ent, minutes))
+            minutes = int(cfg.get(CONF_ZONE_MINUTES.format(i), DEFAULT_MINUTES))
+            name = cfg.get(CONF_ZONE_NAME.format(i)) or f"Zone {i}"
+            out.append((i, ent, minutes, name))
         return out
 
     def zone_entity(self, zone: int) -> str | None:
@@ -79,20 +118,65 @@ class IrrigationController:
     def zone_minutes(self, zone: int) -> int:
         return int(self.cfg.get(CONF_ZONE_MINUTES.format(zone), DEFAULT_MINUTES))
 
+    def zone_name(self, zone: int) -> str:
+        return self.cfg.get(CONF_ZONE_NAME.format(zone)) or f"Zone {zone}"
+
+    def programs(self) -> list[Program]:
+        """Return every program that has at least one zone selected."""
+        cfg = self.cfg
+        known_zones = {z[0] for z in self.zones()}
+        out: list[Program] = []
+        for i in range(1, PROGRAM_COUNT + 1):
+            raw_zones = cfg.get(CONF_PROGRAM_ZONES.format(i)) or []
+            zones = sorted(
+                {int(z) for z in raw_zones if str(z).isdigit() and int(z) in known_zones}
+            )
+            if not zones:
+                continue
+            name = cfg.get(CONF_PROGRAM_NAME.format(i)) or f"Program {i}"
+            start = self._parse_time(cfg.get(CONF_PROGRAM_START_TIME.format(i), DEFAULT_START_TIME))
+            days = cfg.get(CONF_PROGRAM_DAYS.format(i)) or DAYS
+            if isinstance(days, str):
+                days = [days]
+            days = [d for d in days if d in DAYS]
+            out.append(Program(i, name, start, days, zones))
+        return out
+
+    def get_program(self, program_id: int) -> Program | None:
+        return next((p for p in self.programs() if p.id == program_id), None)
+
+    def is_program_enabled(self, program_id: int) -> bool:
+        return self.program_enabled.get(program_id, True)
+
+    def set_program_enabled(self, program_id: int, enabled: bool) -> None:
+        self.program_enabled[program_id] = enabled
+        self.notify()
+
+    # ------------------------------------------------------------------
+    # Skip today
+    # ------------------------------------------------------------------
+    @property
+    def skip_today(self) -> bool:
+        return self._skip_today_date == dt_util.now().date()
+
+    def set_skip_today(self, active: bool) -> None:
+        self._skip_today_date = dt_util.now().date() if active else None
+        self.notify()
+
     # ------------------------------------------------------------------
     # Setup / teardown
     # ------------------------------------------------------------------
     async def async_setup(self) -> None:
-        start = self._start_time()
-        self._unsubs.append(
-            async_track_time_change(
-                self.hass,
-                self._scheduled_start,
-                hour=start.hour,
-                minute=start.minute,
-                second=0,
+        for program in self.programs():
+            self._unsubs.append(
+                async_track_time_change(
+                    self.hass,
+                    self._make_scheduled_start(program.id),
+                    hour=program.start_time.hour,
+                    minute=program.start_time.minute,
+                    second=0,
+                )
             )
-        )
         # Ticks so the "minutes remaining" attribute stays fresh while running.
         self._unsubs.append(
             async_track_time_interval(self.hass, self._tick, timedelta(seconds=30))
@@ -126,60 +210,81 @@ class IrrigationController:
     # ------------------------------------------------------------------
     # Schedule
     # ------------------------------------------------------------------
-    def _start_time(self) -> time:
-        raw = str(self.cfg.get(CONF_START_TIME, DEFAULT_START_TIME))
+    @staticmethod
+    def _parse_time(raw: Any) -> time:
         try:
-            parts = [int(p) for p in raw.split(":")]
+            parts = [int(p) for p in str(raw).split(":")]
             while len(parts) < 3:
                 parts.append(0)
             return time(parts[0], parts[1], parts[2])
         except (ValueError, IndexError):
             return time(6, 0, 0)
 
-    def _active_days(self) -> list[str]:
-        days = self.cfg.get(CONF_DAYS) or DAYS
-        if isinstance(days, str):
-            days = [days]
-        return [d for d in days if d in DAYS]
-
     @property
     def next_run(self) -> datetime | None:
-        """Next scheduled start, or None if the program is off."""
+        """Next scheduled start across every enabled program, or None."""
         if not self.enabled:
             return None
-        active = self._active_days()
-        if not active or not self.zones():
-            return None
 
-        start = self._start_time()
         now = dt_util.now()
-        for offset in range(0, 8):
-            day = now + timedelta(days=offset)
-            if DAYS[day.weekday()] not in active:
+        best: datetime | None = None
+        for program in self.programs():
+            if not self.is_program_enabled(program.id) or not program.days:
                 continue
-            candidate = day.replace(
-                hour=start.hour, minute=start.minute, second=0, microsecond=0
-            )
-            if candidate > now:
-                return candidate
-        return None
+            for offset in range(0, 8):
+                day = now + timedelta(days=offset)
+                if DAYS[day.weekday()] not in program.days:
+                    continue
+                if offset == 0 and self.skip_today:
+                    continue
+                candidate = day.replace(
+                    hour=program.start_time.hour,
+                    minute=program.start_time.minute,
+                    second=0,
+                    microsecond=0,
+                )
+                if candidate > now:
+                    if best is None or candidate < best:
+                        best = candidate
+                    break
+        return best
 
-    async def _scheduled_start(self, _now) -> None:
-        if not self.enabled:
-            _LOGGER.debug("Program disabled, skipping scheduled run")
+    def _make_scheduled_start(self, program_id: int) -> Callable[[Any], Any]:
+        async def _scheduled_start(_now) -> None:
+            await self._run_program_if_due(program_id)
+
+        return _scheduled_start
+
+    async def _run_program_if_due(self, program_id: int) -> None:
+        program = self.get_program(program_id)
+        if program is None:
             return
-        if DAYS[dt_util.now().weekday()] not in self._active_days():
+        if not self.enabled:
+            _LOGGER.debug("System disabled, skipping scheduled run for %s", program.name)
+            return
+        if not self.is_program_enabled(program.id):
+            _LOGGER.debug("Program '%s' disabled, skipping", program.name)
+            return
+        if self.skip_today:
+            self.status = STATUS_SKIPPED
+            self.last_skip_reason = "skipped for today"
+            self.current_program_name = program.name
+            self.notify()
+            _LOGGER.info("Skipping '%s': skip-today is armed", program.name)
+            return
+        if DAYS[dt_util.now().weekday()] not in program.days:
             return
 
         ok, reason = await self.async_check_weather()
         if not ok:
             self.status = STATUS_SKIPPED
             self.last_skip_reason = reason
+            self.current_program_name = program.name
             self.notify()
-            _LOGGER.info("Skipping watering: %s", reason)
+            _LOGGER.info("Skipping '%s': %s", program.name, reason)
             return
 
-        await self.async_run([z[0] for z in self.zones()])
+        await self.async_run(program.zones, program_name=program.name)
 
     # ------------------------------------------------------------------
     # Weather
@@ -245,8 +350,14 @@ class IrrigationController:
     # ------------------------------------------------------------------
     # Running
     # ------------------------------------------------------------------
-    async def async_run(self, zones: list[int] | None = None, *, check_weather: bool = False) -> None:
-        """Run the given zones in sequence. None means all configured zones."""
+    async def async_run(
+        self,
+        zones: list[int] | None = None,
+        *,
+        check_weather: bool = False,
+        program_name: str | None = None,
+    ) -> None:
+        """Run the given zones in sequence. None means every configured zone."""
         if zones is None:
             zones = [z[0] for z in self.zones()]
         zones = [z for z in zones if self.zone_entity(z)]
@@ -259,11 +370,13 @@ class IrrigationController:
             if not ok:
                 self.status = STATUS_SKIPPED
                 self.last_skip_reason = reason
+                self.current_program_name = program_name
                 self.notify()
                 _LOGGER.info("Skipping watering: %s", reason)
                 return
 
         await self.async_stop()
+        self.current_program_name = program_name
         self._task = self.entry.async_create_background_task(
             self.hass, self._runner(zones), f"{self.entry.entry_id}_run"
         )
@@ -283,7 +396,7 @@ class IrrigationController:
                 self.notify()
 
                 await self._switch(entity_id, True)
-                _LOGGER.info("Zone %s on for %s minutes", zone, minutes)
+                _LOGGER.info("Zone %s (%s) on for %s minutes", zone, self.zone_name(zone), minutes)
                 try:
                     await asyncio.sleep(minutes * 60)
                 finally:
@@ -297,6 +410,7 @@ class IrrigationController:
             await self._all_off()
             self.current_zone = None
             self.zone_ends_at = None
+            self.current_program_name = None
             if self.status == STATUS_WATERING:
                 self.status = STATUS_IDLE if self.enabled else STATUS_DISABLED
             self.notify()
@@ -313,12 +427,13 @@ class IrrigationController:
         await self._all_off()
         self.current_zone = None
         self.zone_ends_at = None
+        self.current_program_name = None
         if self.status == STATUS_WATERING:
             self.status = STATUS_IDLE
         self.notify()
 
     async def _all_off(self) -> None:
-        for _zone, entity_id, _minutes in self.zones():
+        for _zone, entity_id, _minutes, _name in self.zones():
             await self._switch(entity_id, False)
 
     async def _switch(self, entity_id: str, on: bool) -> None:

@@ -51,17 +51,25 @@ class StatusSensor(IrrigationEntity, SensorEntity):
         if self.controller.zone_ends_at:
             secs = (self.controller.zone_ends_at - dt_util.utcnow()).total_seconds()
             remaining = max(0, round(secs / 60, 1))
+        zone_name = (
+            self.controller.zone_name(self.controller.current_zone)
+            if self.controller.current_zone
+            else None
+        )
         return {
-            "current_zone": self.controller.current_zone,
+            "current_zone": zone_name,
+            "current_program": self.controller.current_program_name,
             "minutes_remaining": remaining,
             "last_run": self.controller.last_run,
             "last_skip_reason": self.controller.last_skip_reason,
+            "skip_today": self.controller.skip_today,
             "zones_configured": len(self.controller.zones()),
+            "programs_configured": len(self.controller.programs()),
         }
 
 
 class NextRunSensor(IrrigationEntity, SensorEntity):
-    """Next scheduled start time."""
+    """Next scheduled start time, across every enabled program."""
 
     _attr_name = "Next run"
     _attr_icon = "mdi:clock-outline"

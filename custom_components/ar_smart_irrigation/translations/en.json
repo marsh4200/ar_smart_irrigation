@@ -3,11 +3,9 @@
     "step": {
       "user": {
         "title": "AR Smart Irrigation",
-        "description": "Set when the program runs and when it should skip because of weather.",
+        "description": "Global weather protection, shared by every program. Zones and timers come next.",
         "data": {
           "weather_entity": "Weather entity",
-          "start_time": "Start time",
-          "days": "Days",
           "rain_threshold": "Skip if rain forecast above",
           "freeze_temp": "Skip if colder than"
         },
@@ -19,16 +17,48 @@
       },
       "zones": {
         "title": "Zones",
-        "description": "Pick the relay channel for each zone you use and how long it should run. Leave a zone empty if you don't have it.",
+        "description": "Each zone is one physical switch entity (a relay channel, valve, or smart plug) and how long it runs for. Leave a zone empty if you don't have it. Name your zones so programs are easy to read later.",
         "data": {
-          "zone_1_switch": "Zone 1 relay",
+          "zone_1_name": "Zone 1 name",
+          "zone_1_switch": "Zone 1 switch entity",
           "zone_1_minutes": "Zone 1 runtime",
-          "zone_2_switch": "Zone 2 relay",
+          "zone_2_name": "Zone 2 name",
+          "zone_2_switch": "Zone 2 switch entity",
           "zone_2_minutes": "Zone 2 runtime",
-          "zone_3_switch": "Zone 3 relay",
+          "zone_3_name": "Zone 3 name",
+          "zone_3_switch": "Zone 3 switch entity",
           "zone_3_minutes": "Zone 3 runtime",
-          "zone_4_switch": "Zone 4 relay",
+          "zone_4_name": "Zone 4 name",
+          "zone_4_switch": "Zone 4 switch entity",
           "zone_4_minutes": "Zone 4 runtime"
+        },
+        "data_description": {
+          "zone_1_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_2_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_3_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_4_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\"."
+        }
+      },
+      "programs": {
+        "title": "Programs (timers)",
+        "description": "Each program is an independent timer: a start time, the days it fires, and which zones it switches on. Configure as many as you need, up to 4. Leave a program's zones empty to leave it unused.",
+        "data": {
+          "program_1_name": "Program 1 name",
+          "program_1_start_time": "Program 1 start time",
+          "program_1_days": "Program 1 days",
+          "program_1_zones": "Program 1 zones",
+          "program_2_name": "Program 2 name",
+          "program_2_start_time": "Program 2 start time",
+          "program_2_days": "Program 2 days",
+          "program_2_zones": "Program 2 zones",
+          "program_3_name": "Program 3 name",
+          "program_3_start_time": "Program 3 start time",
+          "program_3_days": "Program 3 days",
+          "program_3_zones": "Program 3 zones",
+          "program_4_name": "Program 4 name",
+          "program_4_start_time": "Program 4 start time",
+          "program_4_days": "Program 4 days",
+          "program_4_zones": "Program 4 zones"
         }
       }
     },
@@ -39,26 +69,60 @@
   "options": {
     "step": {
       "init": {
-        "title": "Program",
+        "title": "Weather",
         "data": {
           "weather_entity": "Weather entity",
-          "start_time": "Start time",
-          "days": "Days",
           "rain_threshold": "Skip if rain forecast above",
           "freeze_temp": "Skip if colder than"
+        },
+        "data_description": {
+          "weather_entity": "Leave empty to water regardless of weather.",
+          "rain_threshold": "Today's forecast rainfall. Set to 0 to disable this check.",
+          "freeze_temp": "Current outdoor temperature below this cancels the run."
         }
       },
       "zones": {
         "title": "Zones",
         "data": {
-          "zone_1_switch": "Zone 1 relay",
+          "zone_1_name": "Zone 1 name",
+          "zone_1_switch": "Zone 1 switch entity",
           "zone_1_minutes": "Zone 1 runtime",
-          "zone_2_switch": "Zone 2 relay",
+          "zone_2_name": "Zone 2 name",
+          "zone_2_switch": "Zone 2 switch entity",
           "zone_2_minutes": "Zone 2 runtime",
-          "zone_3_switch": "Zone 3 relay",
+          "zone_3_name": "Zone 3 name",
+          "zone_3_switch": "Zone 3 switch entity",
           "zone_3_minutes": "Zone 3 runtime",
-          "zone_4_switch": "Zone 4 relay",
+          "zone_4_name": "Zone 4 name",
+          "zone_4_switch": "Zone 4 switch entity",
           "zone_4_minutes": "Zone 4 runtime"
+        },
+        "data_description": {
+          "zone_1_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_2_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_3_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\".",
+          "zone_4_name": "Optional friendly name shown on the zone's switch, e.g. \"Front lawn\"."
+        }
+      },
+      "programs": {
+        "title": "Programs (timers)",
+        "data": {
+          "program_1_name": "Program 1 name",
+          "program_1_start_time": "Program 1 start time",
+          "program_1_days": "Program 1 days",
+          "program_1_zones": "Program 1 zones",
+          "program_2_name": "Program 2 name",
+          "program_2_start_time": "Program 2 start time",
+          "program_2_days": "Program 2 days",
+          "program_2_zones": "Program 2 zones",
+          "program_3_name": "Program 3 name",
+          "program_3_start_time": "Program 3 start time",
+          "program_3_days": "Program 3 days",
+          "program_3_zones": "Program 3 zones",
+          "program_4_name": "Program 4 name",
+          "program_4_start_time": "Program 4 start time",
+          "program_4_days": "Program 4 days",
+          "program_4_zones": "Program 4 zones"
         }
       }
     }
@@ -93,8 +157,28 @@
       "name": "Run now",
       "description": "Start watering immediately.",
       "fields": {
-        "zone": { "name": "Zone", "description": "Zone number, or empty for all zones." },
-        "check_weather": { "name": "Check weather first", "description": "Skip the run if the weather says so." }
+        "zone": {
+          "name": "Zone",
+          "description": "Zone number, or empty for all zones."
+        },
+        "check_weather": {
+          "name": "Check weather first",
+          "description": "Skip the run if the weather says so."
+        }
+      }
+    },
+    "run_program": {
+      "name": "Run program",
+      "description": "Start a specific configured program immediately.",
+      "fields": {
+        "program": {
+          "name": "Program",
+          "description": "The program number to run."
+        },
+        "check_weather": {
+          "name": "Check weather first",
+          "description": "Skip the run if the weather says so."
+        }
       }
     },
     "stop": {

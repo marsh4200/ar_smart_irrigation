@@ -19,6 +19,27 @@ run_now:
       selector:
         boolean:
 
+run_program:
+  name: Run program
+  description: Start a specific configured program (timer) immediately, running its zones in sequence.
+  fields:
+    program:
+      name: Program
+      description: The program number to run (as shown in Settings, 1-4).
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 4
+          mode: box
+    check_weather:
+      name: Check weather first
+      description: Skip the run if it is wet, freezing, or rain is forecast.
+      required: false
+      default: false
+      selector:
+        boolean:
+
 stop:
   name: Stop
   description: Cancel any run in progress and switch all zone relays off.

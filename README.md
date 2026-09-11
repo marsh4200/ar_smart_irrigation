@@ -1,29 +1,46 @@
 # AR Smart Irrigation
 
 A small, weather-aware irrigation controller for Home Assistant. It drives up to
-four relay channels (built for a Sonoff 4CH Pro R3) and runs them one at a time.
+four relay channels (built for a Sonoff 4CH Pro R3, but any `switch`, `valve`,
+`input_boolean`, or `light` entity works) and runs them one at a time.
 
-No flow meters, no ET maths, no soil probes. It checks the weather, then waters.
+No flow meters, no ET maths, no soil probes. It checks the weather, then waters —
+on as many independent timers as you need.
 
 ## What it does
 
+- **Multiple programs (timers).** Set up to 4 independent programs, each with
+  its own name, start time, days of the week, and choice of zones. Run a
+  "Morning" program on some zones and an "Evening" program on others, or run
+  them all from one program — your call.
 - **Weather check before every scheduled run.** Skips if it is currently wet,
   if the outdoor temperature is below your freeze limit, or if today's forecast
-  rainfall is above your threshold.
-- **One daily start time**, on the days you choose.
-- **Up to 4 zones**, each mapped to a relay channel with its own runtime in minutes.
-- **Sequential** — only one motor ever runs at a time.
-- **Manual run and stop** via buttons or services.
+  rainfall is above your threshold. Applies to every program.
+- **Up to 4 zones**, each mapped to a switch entity, with its own name and
+  runtime in minutes.
+- **Sequential** — only one zone ever runs at a time, even across programs.
+- **Skip today** — a one-tap switch that cancels only today's scheduled
+  run(s), without touching your program or day-of-week setup. Clears itself
+  automatically at midnight.
+- **Per-program enable switches** — turn an individual program on or off
+  without affecting the others.
+- **A single System switch** — the master kill switch for the whole
+  integration. Off means nothing runs, ever, on any program.
+- **Manual run and stop** via switches, buttons, or services.
 
 ## Entities
 
 | Entity | What it is |
 |---|---|
-| `switch.ar_smart_irrigation_program` | Master enable for the schedule. Off = no automatic runs. |
-| `switch.ar_smart_irrigation_zone_1..4` | Turn on to run that zone for its set time. Turns itself off when done. |
-| `sensor.ar_smart_irrigation_status` | idle / watering / skipped / disabled, with `current_zone`, `minutes_remaining`, `last_run`, `last_skip_reason`. |
-| `sensor.ar_smart_irrigation_next_run` | Next scheduled start. |
-| `button.ar_smart_irrigation_run_now` | Run all zones now, ignoring weather. |
+| `switch.ar_smart_irrigation_system` | Master enable for the whole integration. Off = no automatic or manual runs. |
+| `switch.ar_smart_irrigation_skip_today` | Skip every scheduled run today only. Auto-clears at midnight. |
+| `switch.ar_smart_irrigation_<program>_enabled` | Enable/disable one program, one per configured program. |
+| `switch.ar_smart_irrigation_<zone name>` | Turn on to run that zone for its set time. Turns itself off when done. |
+| `binary_sensor.ar_smart_irrigation_watering` | On while any zone is actively running. |
+| `binary_sensor.ar_smart_irrigation_last_run_skipped` | On if the last scheduled run was skipped, with the reason as an attribute. |
+| `sensor.ar_smart_irrigation_status` | idle / watering / skipped / disabled, with `current_zone`, `current_program`, `minutes_remaining`, `last_run`, `last_skip_reason`. |
+| `sensor.ar_smart_irrigation_next_run` | Next scheduled start, across every enabled program. |
+| `button.ar_smart_irrigation_run_now` | Run every configured zone now, ignoring the weather. |
 | `button.ar_smart_irrigation_stop` | Cancel and switch everything off. |
 
 ## Services
@@ -42,6 +59,12 @@ service: ar_smart_irrigation.run_now
 data:
   check_weather: true
 
+# Run a specific program by number
+service: ar_smart_irrigation.run_program
+data:
+  program: 1
+  check_weather: true
+
 # Stop and close everything
 service: ar_smart_irrigation.stop
 ```
@@ -52,11 +75,14 @@ service: ar_smart_irrigation.stop
    or add this repo to HACS as a custom repository.
 2. Restart Home Assistant.
 3. **Settings → Devices & Services → Add Integration → AR Smart Irrigation**.
-4. Step 1: weather entity, start time, days, rain and freeze limits.
-5. Step 2: pick the relay switch for each zone you use and its runtime.
+4. Step 1: weather entity, rain and freeze limits (these protect every
+   program you configure next).
+5. Step 2: name each zone and pick its switch entity and runtime. Leave a
+   zone empty if you don't use that channel.
+6. Step 3: build your programs — name, start time, days, and which zones each
+   one triggers. Leave a program's zones empty to leave it unused.
 
-Leave a zone's relay empty if you don't use that channel. Everything can be
-changed later under **Configure**.
+Everything can be changed later under **Configure**.
 
 ## Notes
 
@@ -64,5 +90,9 @@ changed later under **Configure**.
 - Set the rain threshold to `0` to skip only the forecast check.
 - If the weather entity is unavailable, the run goes ahead rather than being
   silently cancelled.
-- The **Run now** button deliberately ignores the weather — it's a manual override.
-  Use the service with `check_weather: true` if you want it respected.
+- The **Run now** button and the per-zone switches deliberately ignore the
+  weather — they're manual overrides. Use `run_now`/`run_program` with
+  `check_weather: true` if you want them respected.
+- Upgrading from v1 (single start time/days)? Your old schedule is migrated
+  automatically into "Program 1" the first time you restart on v2 — nothing
+  to redo.
